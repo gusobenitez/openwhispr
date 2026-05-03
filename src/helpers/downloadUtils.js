@@ -115,6 +115,28 @@ function downloadAttempt(url, tempPath, options) {
       request.setHeader(name, value);
     }
 
+    request.on("redirect", (statusCode, method, redirectUrl) => {
+      if (request) {
+        request.abort();
+        request = null;
+      }
+      if (signal?.aborted) {
+        reject(Object.assign(new Error("Download cancelled"), { isAbort: true }));
+        return;
+      }
+      if (!redirectUrl) {
+        reject(
+          Object.assign(new Error("Redirect without location header"), { isHttpError: true })
+        );
+        return;
+      }
+      if (signal) signal.onAbort = null;
+      downloadAttempt(redirectUrl, tempPath, { ...options, _redirects: _redirects + 1 }).then(
+        resolve,
+        reject
+      );
+    });
+
     request.on("response", (response) => {
       if (signal?.aborted) {
         response.resume();
