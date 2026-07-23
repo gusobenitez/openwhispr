@@ -431,19 +431,40 @@
           "name": "Gemini 3.5 Flash",
           "description": "Latest fast, high-capability Gemini model",
           "descriptionKey": "models.descriptions.cloud.gemini_gemini_3_5_flash",
-          "supportsThinking": true
+          "supportsThinking": true,
+          "supportsTemperature": false,
+          "thinkingLevels": {
+            "options": ["minimal", "low", "medium", "high"],
+            "disabled": "minimal",
+            "enabled": "medium"
+          }
+        },
+        {
+          "id": "gemini-3.5-flash-lite",
+          "name": "Gemini 3.5 Flash Lite",
+          "description": "Fastest and cheapest 3.5 model, generous free tier",
+          "descriptionKey": "models.descriptions.cloud.gemini_gemini_3_5_flash_lite",
+          "supportsThinking": true,
+          "supportsTemperature": false,
+          "thinkingLevels": {
+            "options": ["minimal", "low", "medium", "high"],
+            "disabled": "minimal",
+            "enabled": "medium"
+          }
         },
         {
           "id": "gemini-3.1-pro-preview",
           "name": "Gemini 3.1 Pro",
           "description": "Next-gen flagship model for complex reasoning",
-          "descriptionKey": "models.descriptions.cloud.gemini_gemini_3_1_pro_preview"
+          "descriptionKey": "models.descriptions.cloud.gemini_gemini_3_1_pro_preview",
+          "supportsTemperature": false
         },
         {
           "id": "gemini-3-flash-preview",
           "name": "Gemini 3 Flash",
           "description": "Ultra-fast, high-capability next-gen model",
-          "descriptionKey": "models.descriptions.cloud.gemini_gemini_3_flash_preview"
+          "descriptionKey": "models.descriptions.cloud.gemini_gemini_3_flash_preview",
+          "supportsTemperature": false
         },
         {
           "id": "gemini-2.5-flash-lite",

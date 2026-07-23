@@ -632,6 +632,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
                 const agentName = localStorage.getItem("agentName") || null;
                 const reasonedText = await ReasoningService.processText(rawText, model, agentName, {
                   disableThinking: getSettings().cleanupDisableThinking,
+                  thinkingLevel: getSettings().cleanupThinkingLevel,
                 });
                 if (reasonedText && reasonedText !== rawText) {
                   const updated = await window.electronAPI.updateTranscriptionText(

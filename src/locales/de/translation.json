@@ -467,8 +467,10 @@
     },
     "thinkingLevel": {
       "label": "Denkstufe",
-      "help": "Minimal ist am schnellsten. Hoch liefert ausführlicheres Denken, ist aber langsamer.",
+      "help": "Niedrigere Stufen antworten schneller und kosten weniger; höhere Stufen denken gründlicher nach.",
       "minimal": "Minimal",
+      "low": "Niedrig",
+      "medium": "Mittel",
       "high": "Hoch"
     },
     "selfHosted": {
@@ -1943,6 +1945,7 @@
         "anthropic_claude_sonnet_4_5": "Vorherige Sonnet-Generation",
         "anthropic_claude_haiku_4_5": "Schnell mit nahezu Frontier-Intelligenz",
         "gemini_gemini_3_5_flash": "Neuestes schnelles, leistungsstarkes Gemini-Modell",
+        "gemini_gemini_3_5_flash_lite": "Schnellstes und günstigstes 3.5-Modell, großzügiges Gratiskontingent",
         "gemini_gemini_3_1_pro_preview": "Flaggschiff der nächsten Generation für komplexes Reasoning",
         "gemini_gemini_3_flash_preview": "Ultraschnelles Modell der nächsten Generation mit hoher Leistungsfähigkeit",
         "gemini_gemini_2_5_flash_lite": "Niedrigste Latenz und Kosten",

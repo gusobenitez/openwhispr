@@ -1,18 +1,29 @@
-import { Zap, Brain } from "lucide-react";
+import { Zap, Gauge, Brain, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { GeminiThinkingLevel } from "../../services/ai/geminiThinking";
+
+const LEVEL_ICONS: Record<GeminiThinkingLevel, typeof Zap> = {
+  minimal: Zap,
+  low: Gauge,
+  medium: Brain,
+  high: Sparkles,
+};
 
 interface ThinkingLevelSelectorProps {
-  /** true = minimal thinking (maps to disableThinking), false = high */
-  minimal: boolean;
-  onChange: (minimal: boolean) => void;
+  /** Ordered levels this model accepts, cheapest first. */
+  options: GeminiThinkingLevel[];
+  /** Currently selected level. Always one of `options`. */
+  value: GeminiThinkingLevel;
+  onChange: (level: GeminiThinkingLevel) => void;
 }
 
 /**
- * Two-option segmented control ("Minimal" / "High") for models whose thinking
- * can't be turned off, only dialed down (e.g. Gemma 4 on the Gemini API). Maps
- * onto the same `disableThinking` flag the plain toggle uses: minimal = true.
+ * Segmented control over the thinking levels a model accepts. Gemini 3.5 models
+ * take all four (minimal/low/medium/high); Gemma 4 only has two, so it renders
+ * as a Minimal/High pair. Models whose thinking can merely be switched off use
+ * the plain `Toggle` instead.
  */
-export function ThinkingLevelSelector({ minimal, onChange }: ThinkingLevelSelectorProps) {
+export function ThinkingLevelSelector({ options, value, onChange }: ThinkingLevelSelectorProps) {
   const { t } = useTranslation();
 
   const buttonClass = (active: boolean) =>
@@ -22,14 +33,20 @@ export function ThinkingLevelSelector({ minimal, onChange }: ThinkingLevelSelect
 
   return (
     <div className="inline-flex shrink-0 gap-0.5 rounded-md border border-border-subtle bg-surface-1 p-0.5">
-      <button type="button" onClick={() => onChange(true)} className={buttonClass(minimal)}>
-        <Zap className="h-3.5 w-3.5" />
-        {t("reasoning.thinkingLevel.minimal")}
-      </button>
-      <button type="button" onClick={() => onChange(false)} className={buttonClass(!minimal)}>
-        <Brain className="h-3.5 w-3.5" />
-        {t("reasoning.thinkingLevel.high")}
-      </button>
+      {options.map((level) => {
+        const Icon = LEVEL_ICONS[level];
+        return (
+          <button
+            key={level}
+            type="button"
+            onClick={() => onChange(level)}
+            className={buttonClass(level === value)}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {t(`reasoning.thinkingLevel.${level}`)}
+          </button>
+        );
+      })}
     </div>
   );
 }

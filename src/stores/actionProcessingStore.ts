@@ -148,6 +148,7 @@ export function runBackgroundAction(
         systemPrompt,
         temperature: 0.3,
         disableThinking: settings.noteFormattingDisableThinking,
+        thinkingLevel: settings.noteFormattingThinkingLevel,
         ...providerOverrides,
       });
 

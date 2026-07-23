@@ -12,6 +12,10 @@ export interface ReasoningConfig {
   customApiKey?: string;
   provider?: string;
   disableThinking?: boolean;
+  // Gemini/Gemma models that accept a thinkingConfig.thinkingLevel. Takes
+  // precedence over disableThinking for those models; ignored by every other
+  // provider, which keeps using the boolean.
+  thinkingLevel?: string;
   language?: string;
 }
 

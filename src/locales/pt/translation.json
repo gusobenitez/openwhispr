@@ -446,8 +446,10 @@
     },
     "thinkingLevel": {
       "label": "Nível de raciocínio",
-      "help": "Mínimo é o mais rápido. Alto oferece um raciocínio mais completo, mas é mais lento.",
+      "help": "Níveis mais baixos respondem mais rápido e custam menos; níveis mais altos raciocinam de forma mais completa.",
       "minimal": "Mínimo",
+      "low": "Baixo",
+      "medium": "Médio",
       "high": "Alto"
     },
     "selfHosted": {
@@ -1922,6 +1924,7 @@
         "anthropic_claude_sonnet_4_5": "Geração anterior do Sonnet",
         "anthropic_claude_haiku_4_5": "Rápido com inteligência quase de ponta",
         "gemini_gemini_3_5_flash": "Modelo Gemini mais recente, rápido e de alta capacidade",
+        "gemini_gemini_3_5_flash_lite": "O modelo 3.5 mais rápido e barato, com um nível gratuito generoso",
         "gemini_gemini_3_1_pro_preview": "Modelo principal de nova geração para raciocínio complexo",
         "gemini_gemini_3_flash_preview": "Modelo de nova geração ultrarápido e de alta capacidade",
         "gemini_gemini_2_5_flash_lite": "Menor latência e custo",

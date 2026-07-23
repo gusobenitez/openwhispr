@@ -467,8 +467,10 @@
     },
     "thinkingLevel": {
       "label": "思考レベル",
-      "help": "「最小」が最速です。「高」はより詳細な推論を行いますが、低速です。",
+      "help": "低いレベルほど応答が速くコストも低く、高いレベルほど緻密に推論します。",
       "minimal": "最小",
+      "low": "低",
+      "medium": "中",
       "high": "高"
     },
     "selfHosted": {
@@ -1943,6 +1945,7 @@
         "anthropic_claude_sonnet_4_5": "前世代の Sonnet モデル",
         "anthropic_claude_haiku_4_5": "高速でフロンティアに近い知能",
         "gemini_gemini_3_5_flash": "最新の高速で高性能な Gemini モデル",
+        "gemini_gemini_3_5_flash_lite": "最も高速で低コストな 3.5 モデル。無料枠も充実",
         "gemini_gemini_3_1_pro_preview": "複雑な推論向けの次世代フラッグシップモデル",
         "gemini_gemini_3_flash_preview": "超高速・高性能の次世代モデル",
         "gemini_gemini_2_5_flash_lite": "最低レイテンシーとコスト",

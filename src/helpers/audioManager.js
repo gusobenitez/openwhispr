@@ -143,7 +143,10 @@ function resolveReasoningRoute(
       kind: "translation",
       model: settings.translationModel?.trim() || "",
       cleanupReachable,
-      cleanupConfig: { disableThinking: settings.cleanupDisableThinking },
+      cleanupConfig: {
+        disableThinking: settings.cleanupDisableThinking,
+        thinkingLevel: settings.cleanupThinkingLevel,
+      },
       config: {
         provider,
         language: settings.translationTargetLanguage,
@@ -154,6 +157,7 @@ function resolveReasoningRoute(
             ? settings.translationCustomApiKey || undefined
             : undefined,
         disableThinking: settings.translationDisableThinking,
+        thinkingLevel: settings.translationThinkingLevel,
         systemPrompt: resolvePrompt("translate", {
           agentName,
           targetLanguageLabel: getLanguageLabel(settings.translationTargetLanguage),
@@ -180,6 +184,7 @@ function resolveReasoningRoute(
             ? settings.dictationAgentCustomApiKey || undefined
             : undefined,
         disableThinking: settings.dictationAgentDisableThinking,
+        thinkingLevel: settings.dictationAgentThinkingLevel,
         systemPrompt: resolvePrompt("dictationAgent", {
           agentName,
           language: settings.preferredLanguage,
@@ -192,7 +197,10 @@ function resolveReasoningRoute(
   if (kind === "cleanup") {
     return {
       kind: "cleanup",
-      config: { disableThinking: settings.cleanupDisableThinking },
+      config: {
+        disableThinking: settings.cleanupDisableThinking,
+        thinkingLevel: settings.cleanupThinkingLevel,
+      },
     };
   }
   return { kind: "skip" };
@@ -1941,6 +1949,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           provider: route.config?.provider || cleanupProvider,
           path: route.kind,
           disableThinking: reasoningConfig?.disableThinking,
+          thinkingLevel: reasoningConfig?.thinkingLevel,
         });
 
         const result = await this.processWithReasoningModel(

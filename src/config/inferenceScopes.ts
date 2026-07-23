@@ -9,6 +9,9 @@ export interface InferenceScopeStoreKeys {
   remoteUrl?: keyof SettingsState;
   customApiKey?: keyof SettingsState;
   disableThinking?: keyof SettingsState;
+  // Gemini/Gemma models that accept a thinkingConfig.thinkingLevel store the
+  // chosen level here; every other model keeps using the disableThinking boolean.
+  thinkingLevel?: keyof SettingsState;
 }
 
 export interface InferenceScopeDefinition {
@@ -27,6 +30,7 @@ export const INFERENCE_SCOPES = {
       remoteUrl: "cleanupRemoteUrl",
       customApiKey: "cleanupCustomApiKey",
       disableThinking: "cleanupDisableThinking",
+      thinkingLevel: "cleanupThinkingLevel",
     },
   },
   dictationAgent: {
@@ -39,6 +43,7 @@ export const INFERENCE_SCOPES = {
       remoteUrl: "dictationAgentRemoteUrl",
       customApiKey: "dictationAgentCustomApiKey",
       disableThinking: "dictationAgentDisableThinking",
+      thinkingLevel: "dictationAgentThinkingLevel",
     },
   },
   noteFormatting: {
@@ -51,6 +56,7 @@ export const INFERENCE_SCOPES = {
       remoteUrl: "noteFormattingRemoteUrl",
       customApiKey: "noteFormattingCustomApiKey",
       disableThinking: "noteFormattingDisableThinking",
+      thinkingLevel: "noteFormattingThinkingLevel",
     },
     fallbackScope: "dictationCleanup",
   },
@@ -64,6 +70,7 @@ export const INFERENCE_SCOPES = {
       remoteUrl: "chatAgentRemoteUrl",
       customApiKey: "chatAgentCustomApiKey",
       disableThinking: "chatAgentDisableThinking",
+      thinkingLevel: "chatAgentThinkingLevel",
     },
   },
   dictationTranslation: {
@@ -76,6 +83,7 @@ export const INFERENCE_SCOPES = {
       remoteUrl: "translationRemoteUrl",
       customApiKey: "translationCustomApiKey",
       disableThinking: "translationDisableThinking",
+      thinkingLevel: "translationThinkingLevel",
     },
   },
 } as const satisfies Record<string, InferenceScopeDefinition>;

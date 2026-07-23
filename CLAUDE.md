@@ -342,9 +342,12 @@ Non-secret env vars persisted to `.env` (via `saveAllKeysToEnvFile()`):
     - Claude Sonnet 4.5 (`claude-sonnet-4-5`) - Previous Sonnet generation
     - Claude Opus 4.5 (`claude-opus-4-5`) - Earlier Opus model
   - **Google Gemini** (Direct API integration):
+    - Gemini 3.5 Flash (`gemini-3.5-flash`) - Latest fast, high-capability model
+    - Gemini 3.5 Flash Lite (`gemini-3.5-flash-lite`) - Fastest and cheapest 3.5 model
     - Gemini 3.1 Pro (`gemini-3.1-pro-preview`) - Most capable Gemini model
     - Gemini 3 Flash (`gemini-3-flash-preview`) - Ultra-fast, high-capability next-gen model
     - Gemini 2.5 Flash Lite (`gemini-2.5-flash-lite`) - Lowest latency and cost
+    - Gemma 4 (`gemma-4-31b-it`, `gemma-4-26b-a4b-it`) - Open models on the Gemini API
   - **Local**: GGUF models via llama.cpp (Qwen, Llama, Mistral, GPT-OSS)
 
 ### 8. Model Registry Architecture
@@ -391,10 +394,34 @@ All AI model definitions are centralized in `src/models/modelRegistryData.json` 
 
 **Gemini Integration**:
 
-- Direct API calls from renderer process
+- Direct API calls from renderer process, via `:generateContent`
 - Increased token limits for Gemini 3.1 Pro (2000 minimum)
 - Proper handling of thinking process in responses
 - Error handling for MAX_TOKENS finish reason
+- Gemini 3.x rejects `temperature`/`top_p`/`top_k`, so those models set
+  `supportsTemperature: false` in the registry and `gemini.ts` omits the field
+  entirely rather than sending a default
+
+**Thinking levels (Gemini/Gemma only)**:
+
+- A model declares `thinkingLevels: { options?, disabled, enabled }` in
+  `modelRegistryData.json`. `options` is the ordered list shown in the settings
+  selector; Gemma 4 omits it and is treated as `["minimal", "high"]`.
+- `src/services/ai/geminiThinking.ts` is the single source of truth and is kept
+  dependency-free so `node --test` can load it. It is `@sync(gemini-thinking-config)`
+  with two callers: `inferenceProviders/gemini.ts` (REST) and `ReasoningService.ts`
+  (AI-SDK agent stream).
+- The chosen level persists per scope (`<scope>ThinkingLevel`, `""` = unset).
+  When unset or invalid for the current model, `resolveThinkingLevel()` derives it
+  from the legacy `disableThinking` boolean — this is both the upgrade path and
+  the clamp that stops the selector rendering an unsupported value.
+- Models without `thinkingLevels` keep the plain on/off toggle. This is deliberate:
+  it is what keeps custom/self-hosted endpoints receiving today's exact request
+  shape, since strict OpenAI-compatible servers reject unknown fields.
+- The wire shape is `generationConfig.thinkingConfig.thinkingLevel` (nested,
+  camelCase). Do NOT copy the shape from `ai.google.dev/gemini-api/docs/thinking` —
+  that page documents the Interactions API, which uses a flat
+  `generation_config.thinking_level` instead.
 
 **API Key Persistence**:
 

@@ -500,6 +500,13 @@ export interface SettingsState
   dictationAgentDisableThinking: boolean;
   noteFormattingDisableThinking: boolean;
   chatAgentDisableThinking: boolean;
+  // Empty string = "not chosen yet"; resolveThinkingLevel() then derives the
+  // level from the disableThinking boolean above (see geminiThinking.ts).
+  cleanupThinkingLevel: string;
+  dictationAgentThinkingLevel: string;
+  noteFormattingThinkingLevel: string;
+  chatAgentThinkingLevel: string;
+  translationThinkingLevel: string;
 
   customPrompts: Record<PromptKind, string>;
   setCustomPrompt: (kind: PromptKind, value: string) => void;
@@ -566,6 +573,11 @@ export interface SettingsState
   setDictationAgentDisableThinking: (value: boolean) => void;
   setNoteFormattingDisableThinking: (value: boolean) => void;
   setChatAgentDisableThinking: (value: boolean) => void;
+  setCleanupThinkingLevel: (value: string) => void;
+  setDictationAgentThinkingLevel: (value: string) => void;
+  setNoteFormattingThinkingLevel: (value: string) => void;
+  setChatAgentThinkingLevel: (value: string) => void;
+  setTranslationThinkingLevel: (value: string) => void;
 
   setUseLocalWhisper: (value: boolean) => void;
   setWhisperModel: (value: string) => void;
@@ -1290,6 +1302,11 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   dictationAgentDisableThinking: readBoolean("dictationAgentDisableThinking", true),
   noteFormattingDisableThinking: readBoolean("noteFormattingDisableThinking", true),
   chatAgentDisableThinking: readBoolean("chatAgentDisableThinking", true),
+  cleanupThinkingLevel: readString("cleanupThinkingLevel", ""),
+  dictationAgentThinkingLevel: readString("dictationAgentThinkingLevel", ""),
+  noteFormattingThinkingLevel: readString("noteFormattingThinkingLevel", ""),
+  chatAgentThinkingLevel: readString("chatAgentThinkingLevel", ""),
+  translationThinkingLevel: readString("translationThinkingLevel", ""),
 
   customPrompts: PROMPT_KIND_LIST.reduce(
     (acc, kind) => ({ ...acc, [kind]: readString(`customPrompt.${kind}`, "") }),
@@ -1314,6 +1331,11 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setDictationAgentDisableThinking: createBooleanSetter("dictationAgentDisableThinking"),
   setNoteFormattingDisableThinking: createBooleanSetter("noteFormattingDisableThinking"),
   setChatAgentDisableThinking: createBooleanSetter("chatAgentDisableThinking"),
+  setCleanupThinkingLevel: createStringSetter("cleanupThinkingLevel"),
+  setDictationAgentThinkingLevel: createStringSetter("dictationAgentThinkingLevel"),
+  setNoteFormattingThinkingLevel: createStringSetter("noteFormattingThinkingLevel"),
+  setChatAgentThinkingLevel: createStringSetter("chatAgentThinkingLevel"),
+  setTranslationThinkingLevel: createStringSetter("translationThinkingLevel"),
 
   setUseLocalWhisper: createBooleanSetter("useLocalWhisper"),
   setWhisperModel: createStringSetter("whisperModel"),
@@ -2017,6 +2039,8 @@ export interface ResolvedLLMConfig {
   remoteUrl?: string;
   customApiKey?: string;
   disableThinking: boolean;
+  // "" when the user has not chosen a level for this scope yet.
+  thinkingLevel?: string;
 }
 
 export const selectResolvedLLMConfig = (
@@ -2047,6 +2071,7 @@ export const selectResolvedLLMConfig = (
     remoteUrl: read("remoteUrl") || fallback?.remoteUrl,
     customApiKey: read("customApiKey"),
     disableThinking,
+    thinkingLevel: read("thinkingLevel"),
   };
 };
 

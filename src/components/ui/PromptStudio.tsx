@@ -86,6 +86,7 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
   const translationCloudBaseUrl = useSettingsStore((s) => s.translationCloudBaseUrl);
   const translationCustomApiKey = useSettingsStore((s) => s.translationCustomApiKey);
   const translationDisableThinking = useSettingsStore((s) => s.translationDisableThinking);
+  const translationThinkingLevel = useSettingsStore((s) => s.translationThinkingLevel);
   const translationTargetLanguage = useSettingsStore((s) => s.translationTargetLanguage);
 
   const isTranslate = kind === "translate";
@@ -158,6 +159,7 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
             customApiKey:
               isCustom || isSelfHosted ? translationCustomApiKey || undefined : undefined,
             disableThinking: translationDisableThinking,
+            thinkingLevel: translationThinkingLevel,
             language: translationTargetLanguage,
             systemPrompt: resolvePrompt("translate", {
               agentName,
@@ -230,6 +232,7 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
       try {
         const result = await ReasoningService.processText(testText, modelToUse, agentName, {
           disableThinking: useSettingsStore.getState().cleanupDisableThinking,
+          thinkingLevel: useSettingsStore.getState().cleanupThinkingLevel,
         });
         setTestResult(result);
       } finally {

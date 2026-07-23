@@ -15,6 +15,7 @@ export async function generateNoteTitle(
       systemPrompt: TITLE_SYSTEM_PROMPT,
       temperature: 0.3,
       disableThinking: getSettings().noteFormattingDisableThinking,
+      thinkingLevel: getSettings().noteFormattingThinkingLevel,
       ...config,
     });
     const cleaned = raw.trim().replace(/^["']|["']$/g, "");

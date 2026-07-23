@@ -210,6 +210,7 @@ export function useChatStreaming({
                   ? settings.chatAgentCustomApiKey || undefined
                   : undefined,
               disableThinking: settings.chatAgentDisableThinking,
+              thinkingLevel: settings.chatAgentThinkingLevel,
             },
             aiTools
           );

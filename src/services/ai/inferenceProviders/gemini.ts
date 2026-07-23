@@ -16,7 +16,7 @@ interface GeminiResponse {
 }
 
 interface GeminiGenerationConfig {
-  temperature: number;
+  temperature?: number;
   maxOutputTokens: number;
   thinkingConfig?: GeminiThinkingConfig;
 }
@@ -31,8 +31,9 @@ export const geminiProvider: InferenceProvider = {
     const systemPrompt = config.systemPrompt || ctx.getSystemPrompt(agentName);
     const userContent = config.systemPrompt ? text : wrapCleanupTranscript(text);
 
+    const modelDef = getCloudModel(model);
+
     const generationConfig: GeminiGenerationConfig = {
-      temperature: config.temperature ?? (config.systemPrompt ? 0.3 : 0),
       maxOutputTokens:
         config.maxTokens ||
         Math.max(
@@ -46,13 +47,20 @@ export const geminiProvider: InferenceProvider = {
         ),
     };
 
-    // Map the model's thinking metadata + the "Disable thinking" toggle to a
-    // thinkingConfig (see geminiThinking.ts). Gemma 4 gets a two-way minimal/high
-    // mapping; supportsThinking-only models (e.g. Gemini 3.5 Flash) only drop to
-    // minimal when disabled. Non-thinking models are left untouched.
+    // Gemini 3.x rejects temperature/top_p/top_k — its reasoning is tuned for the
+    // API defaults — so models that opt out in the registry are sent no
+    // temperature at all, not merely a default one.
+    if (modelDef?.supportsTemperature !== false) {
+      generationConfig.temperature = config.temperature ?? (config.systemPrompt ? 0.3 : 0);
+    }
+
+    // Map the model's thinking metadata + the user's stored level (falling back
+    // to the "Disable thinking" toggle) to a thinkingConfig (see
+    // geminiThinking.ts). Non-thinking models are left untouched.
     const thinkingConfig = resolveGeminiThinkingConfig(
-      getCloudModel(model),
-      config.disableThinking
+      modelDef,
+      config.disableThinking,
+      config.thinkingLevel
     );
     if (thinkingConfig) {
       generationConfig.thinkingConfig = thinkingConfig;

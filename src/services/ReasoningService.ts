@@ -658,12 +658,12 @@ class ReasoningService extends BaseReasoningService {
     const userSuppressesThinking = config.disableThinking === true && !!modelDef?.supportsThinking;
     const needsGroqDisableThinking =
       provider === "groq" && (modelDef?.disableThinking || userSuppressesThinking);
-    // Gemini honors the same thinking mapping as the native REST path: Gemma 4
-    // maps the toggle two-way (minimal/high); supportsThinking-only models drop to
-    // minimal when disabled. @sync(gemini-thinking-config)
+    // Gemini honors the same thinking mapping as the native REST path: models
+    // declaring levels are sent the user's stored level; supportsThinking-only
+    // models drop to minimal when disabled. @sync(gemini-thinking-config)
     const geminiThinkingConfig =
       provider === "gemini"
-        ? resolveGeminiThinkingConfig(modelDef, config.disableThinking)
+        ? resolveGeminiThinkingConfig(modelDef, config.disableThinking, config.thinkingLevel)
         : undefined;
     const providerOptions = {
       ...(needsGroqDisableThinking ? { groq: { reasoningEffort: "none" } } : {}),

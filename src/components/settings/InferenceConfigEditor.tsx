@@ -14,6 +14,7 @@ import EnterpriseSection from "../EnterpriseSection";
 import OpenAICompatiblePanel from "../OpenAICompatiblePanel";
 import { Toggle } from "../ui/toggle";
 import { ThinkingLevelSelector } from "../ui/ThinkingLevelSelector";
+import { getThinkingLevelOptions, resolveThinkingLevel } from "../../services/ai/geminiThinking";
 import type { InferenceMode } from "../../types/electron";
 import type { InferenceScope } from "../../config/inferenceScopes";
 import {
@@ -163,10 +164,18 @@ export default function InferenceConfigEditor({ scope, onModeChange }: Inference
         !!getCloudModel(config.model)?.supportsThinking)) ||
     (config.mode === "local" && !!getLocalModel(config.model)?.supportsThinking);
 
-  // Models that always think but accept a thinking level (Gemma 4) show a
-  // Minimal/High selector instead of the on/off "Disable thinking" toggle.
-  const thinkingLevels =
-    config.mode === "providers" ? getCloudModel(config.model)?.thinkingLevels : undefined;
+  // Models that accept an explicit thinking level (Gemini 3.5's four, Gemma 4's
+  // two) show a segmented selector instead of the on/off "Disable thinking"
+  // toggle. The selected level is resolved rather than read raw, so switching to
+  // a model with fewer levels can never leave the control on a value that model
+  // does not accept.
+  const thinkingModel = config.mode === "providers" ? getCloudModel(config.model) : undefined;
+  const thinkingLevelOptions = getThinkingLevelOptions(thinkingModel);
+  const thinkingLevel = resolveThinkingLevel(
+    config.thinkingLevel,
+    config.disableThinking,
+    thinkingModel
+  );
 
   return (
     <div className="space-y-3">
@@ -197,19 +206,24 @@ export default function InferenceConfigEditor({ scope, onModeChange }: Inference
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-medium text-foreground">
               {t(
-                thinkingLevels ? "reasoning.thinkingLevel.label" : "reasoning.disableThinking.label"
+                thinkingLevelOptions
+                  ? "reasoning.thinkingLevel.label"
+                  : "reasoning.disableThinking.label"
               )}
             </h4>
             <p className="text-xs text-muted-foreground">
               {t(
-                thinkingLevels ? "reasoning.thinkingLevel.help" : "reasoning.disableThinking.help"
+                thinkingLevelOptions
+                  ? "reasoning.thinkingLevel.help"
+                  : "reasoning.disableThinking.help"
               )}
             </p>
           </div>
-          {thinkingLevels ? (
+          {thinkingLevelOptions && thinkingLevel ? (
             <ThinkingLevelSelector
-              minimal={config.disableThinking}
-              onChange={setField("disableThinking")}
+              options={thinkingLevelOptions}
+              value={thinkingLevel}
+              onChange={setField("thinkingLevel")}
             />
           ) : (
             <Toggle checked={config.disableThinking} onChange={setField("disableThinking")} />
