@@ -1,8 +1,10 @@
 import type { InferenceProvider } from "./types";
 import { getCloudModel } from "../../../models/ModelRegistry";
-import { withRetry, createApiRetryStrategy } from "../../../utils/retry";
+import { withRetry, createApiRetryStrategy, httpError } from "../../../utils/retry";
 import { API_ENDPOINTS, TOKEN_LIMITS } from "../../../config/constants";
 import { resolveGeminiThinkingConfig, type GeminiThinkingConfig } from "../geminiThinking";
+import { wrapCleanupTranscript } from "../../../config/prompts";
+import { extractApiErrorMessage } from "../apiErrorMessage";
 import logger from "../../../utils/logger";
 
 interface GeminiResponse {
@@ -27,9 +29,10 @@ export const geminiProvider: InferenceProvider = {
     logger.logReasoning("GEMINI_API_KEY", { hasApiKey: !!apiKey, keyLength: apiKey?.length || 0 });
 
     const systemPrompt = config.systemPrompt || ctx.getSystemPrompt(agentName);
+    const userContent = config.systemPrompt ? text : wrapCleanupTranscript(text);
 
     const generationConfig: GeminiGenerationConfig = {
-      temperature: config.temperature ?? 0.3,
+      temperature: config.temperature ?? (config.systemPrompt ? 0.3 : 0),
       maxOutputTokens:
         config.maxTokens ||
         Math.max(
@@ -47,13 +50,16 @@ export const geminiProvider: InferenceProvider = {
     // thinkingConfig (see geminiThinking.ts). Gemma 4 gets a two-way minimal/high
     // mapping; supportsThinking-only models (e.g. Gemini 3.5 Flash) only drop to
     // minimal when disabled. Non-thinking models are left untouched.
-    const thinkingConfig = resolveGeminiThinkingConfig(getCloudModel(model), config.disableThinking);
+    const thinkingConfig = resolveGeminiThinkingConfig(
+      getCloudModel(model),
+      config.disableThinking
+    );
     if (thinkingConfig) {
       generationConfig.thinkingConfig = thinkingConfig;
     }
 
     const requestBody = {
-      contents: [{ parts: [{ text: `${systemPrompt}\n\n${text}` }] }],
+      contents: [{ parts: [{ text: `${systemPrompt}\n\n${userContent}` }] }],
       generationConfig,
     };
 
@@ -93,12 +99,8 @@ export const geminiProvider: InferenceProvider = {
             fullResponse: errorText.substring(0, 500),
           });
 
-          const errMsg =
-            (typeof errorData.error === "object" && errorData.error?.message) ||
-            errorData.message ||
-            (typeof errorData.error === "string" ? errorData.error : null) ||
-            `Gemini API error: ${res.status}`;
-          throw new Error(errMsg);
+          const errMsg = extractApiErrorMessage(errorData, `Gemini API error: ${res.status}`);
+          throw httpError(errMsg, res.status);
         }
 
         const jsonResponse = (await res.json()) as GeminiResponse;
