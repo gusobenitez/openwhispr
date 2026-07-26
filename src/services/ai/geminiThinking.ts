@@ -99,3 +99,43 @@ export function resolveGeminiThinkingConfig(
 
   return undefined;
 }
+
+// Reasoning tokens spend the same `maxOutputTokens` budget as the answer, and
+// `includeThoughts: false` does not change that — it only suppresses the thought
+// *summary* parts in the response; the tokens are still generated and still
+// counted. A budget sized for the answer alone therefore gets consumed by
+// reasoning and the answer is cut off mid-sentence, which the API reports as
+// `finishReason: "MAX_TOKENS"`. These are the extra tokens reserved per level so
+// the answer survives.
+//
+// Sized generously on purpose. An observed truncation spent ~1.9k tokens
+// reasoning over a ~490-character dictation cleanup, so headroom in that same
+// range would only make the failure rarer. Unspent headroom is free — this is a
+// ceiling, not an allocation, and a model that reasons less simply stops sooner.
+const THINKING_HEADROOM_TOKENS: Record<GeminiThinkingLevel, number> = {
+  minimal: 0,
+  low: 2048,
+  medium: 4096,
+  high: 8192,
+};
+
+/**
+ * Grow an answer-sized token budget to cover the reasoning that shares it.
+ *
+ * `answerTokens` is what the answer alone needs; the return value is what to send
+ * as `maxOutputTokens`. Headroom is a ceiling, not an allocation — a model that
+ * reasons less simply never spends it, so this costs nothing when thinking is off
+ * or unsupported.
+ *
+ * A missing `thinkingConfig` is budgeted as "medium", not zero: omitting the
+ * field leaves the request at the API's default thinking level, which is not off
+ * (Gemini 3.1 Pro and 3 Flash reach this path — they think by default and declare
+ * no thinking metadata in the registry).
+ */
+export function resolveGeminiMaxOutputTokens(
+  answerTokens: number,
+  thinkingConfig: GeminiThinkingConfig | undefined
+): number {
+  const level = thinkingConfig?.thinkingLevel ?? "medium";
+  return answerTokens + THINKING_HEADROOM_TOKENS[level];
+}

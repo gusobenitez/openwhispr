@@ -159,3 +159,53 @@ test("a stored level never leaks onto a model without declared levels", async ()
   assert.equal(resolveGeminiThinkingConfig(NON_THINKING, false, "high"), undefined);
   assert.equal(resolveGeminiThinkingConfig(undefined, false, "high"), undefined);
 });
+
+// --- output budget -------------------------------------------------------
+// Reasoning tokens are charged against the same `maxOutputTokens` ceiling as the
+// answer, so an answer-sized budget gets eaten by thinking and the answer is
+// returned truncated (finishReason: MAX_TOKENS).
+
+test("minimal thinking needs no headroom", async () => {
+  const { resolveGeminiMaxOutputTokens } = await import(HELPER);
+  assert.equal(
+    resolveGeminiMaxOutputTokens(2000, { thinkingLevel: "minimal", includeThoughts: false }),
+    2000
+  );
+});
+
+test("headroom grows with the thinking level", async () => {
+  const { resolveGeminiMaxOutputTokens } = await import(HELPER);
+  const budgets = ["minimal", "low", "medium", "high"].map((thinkingLevel) =>
+    resolveGeminiMaxOutputTokens(2000, { thinkingLevel, includeThoughts: false })
+  );
+  assert.deepEqual(budgets, [2000, 4048, 6096, 10192]);
+});
+
+test("headroom clears the observed truncation by a wide margin", async () => {
+  const { resolveGeminiMaxOutputTokens } = await import(HELPER);
+  // The reported failure: a ~490-char cleanup at 2000 total tokens came back cut
+  // off mid-sentence, having spent ~1.9k of them reasoning. The same request must
+  // now have room for that reasoning *and* the whole answer, with slack to spare.
+  const OBSERVED_THINKING_TOKENS = 1900;
+  const WHOLE_ANSWER_TOKENS = 150;
+  const budget = resolveGeminiMaxOutputTokens(2000, {
+    thinkingLevel: "medium",
+    includeThoughts: false,
+  });
+  assert.ok(budget > (OBSERVED_THINKING_TOKENS + WHOLE_ANSWER_TOKENS) * 2, `budget was ${budget}`);
+});
+
+test("a missing thinkingConfig is budgeted as the API default, not as off", async () => {
+  const { resolveGeminiMaxOutputTokens } = await import(HELPER);
+  // Gemini 3.1 Pro / 3 Flash declare no thinking metadata, so no thinkingConfig
+  // is sent — but they still think, and a zero-headroom budget truncates them.
+  assert.equal(resolveGeminiMaxOutputTokens(2000, undefined), 6096);
+});
+
+test("headroom is additive on top of the answer budget", async () => {
+  const { resolveGeminiMaxOutputTokens } = await import(HELPER);
+  // The answer budget is already clamped by the caller; headroom must not eat
+  // into it, or a long transcript gains reasoning room by losing answer room.
+  const high = { thinkingLevel: "high", includeThoughts: false };
+  assert.equal(resolveGeminiMaxOutputTokens(8192, high), 8192 + 8192);
+});

@@ -2,7 +2,11 @@ import type { InferenceProvider } from "./types";
 import { getCloudModel } from "../../../models/ModelRegistry";
 import { withRetry, createApiRetryStrategy, httpError } from "../../../utils/retry";
 import { API_ENDPOINTS, TOKEN_LIMITS } from "../../../config/constants";
-import { resolveGeminiThinkingConfig, type GeminiThinkingConfig } from "../geminiThinking";
+import {
+  resolveGeminiThinkingConfig,
+  resolveGeminiMaxOutputTokens,
+  type GeminiThinkingConfig,
+} from "../geminiThinking";
 import { wrapCleanupTranscript } from "../../../config/prompts";
 import { extractApiErrorMessage } from "../apiErrorMessage";
 import logger from "../../../utils/logger";
@@ -33,18 +37,32 @@ export const geminiProvider: InferenceProvider = {
 
     const modelDef = getCloudModel(model);
 
+    // Map the model's thinking metadata + the user's stored level (falling back
+    // to the "Disable thinking" toggle) to a thinkingConfig (see
+    // geminiThinking.ts). Non-thinking models are left untouched.
+    const thinkingConfig = resolveGeminiThinkingConfig(
+      modelDef,
+      config.disableThinking,
+      config.thinkingLevel
+    );
+
+    // Budget for the answer first, then grow it to cover the reasoning that
+    // shares the same `maxOutputTokens` ceiling — otherwise thinking eats the
+    // budget and the answer comes back cut off mid-sentence.
+    const answerTokens =
+      config.maxTokens ||
+      Math.max(
+        2000,
+        ctx.calculateMaxTokens(
+          text.length,
+          TOKEN_LIMITS.MIN_TOKENS_GEMINI,
+          TOKEN_LIMITS.MAX_TOKENS_GEMINI,
+          TOKEN_LIMITS.TOKEN_MULTIPLIER
+        )
+      );
+
     const generationConfig: GeminiGenerationConfig = {
-      maxOutputTokens:
-        config.maxTokens ||
-        Math.max(
-          2000,
-          ctx.calculateMaxTokens(
-            text.length,
-            TOKEN_LIMITS.MIN_TOKENS_GEMINI,
-            TOKEN_LIMITS.MAX_TOKENS_GEMINI,
-            TOKEN_LIMITS.TOKEN_MULTIPLIER
-          )
-        ),
+      maxOutputTokens: resolveGeminiMaxOutputTokens(answerTokens, thinkingConfig),
     };
 
     // Gemini 3.x rejects temperature/top_p/top_k — its reasoning is tuned for the
@@ -54,14 +72,6 @@ export const geminiProvider: InferenceProvider = {
       generationConfig.temperature = config.temperature ?? (config.systemPrompt ? 0.3 : 0);
     }
 
-    // Map the model's thinking metadata + the user's stored level (falling back
-    // to the "Disable thinking" toggle) to a thinkingConfig (see
-    // geminiThinking.ts). Non-thinking models are left untouched.
-    const thinkingConfig = resolveGeminiThinkingConfig(
-      modelDef,
-      config.disableThinking,
-      config.thinkingLevel
-    );
     if (thinkingConfig) {
       generationConfig.thinkingConfig = thinkingConfig;
     }
@@ -139,22 +149,37 @@ export const geminiProvider: InferenceProvider = {
       .join("")
       .trim();
 
+    // A MAX_TOKENS finish means the answer stops wherever the budget ran out —
+    // usually mid-sentence. That is checked before the empty-response guard
+    // because partial text is the common case once reasoning shares the budget,
+    // and silently returning it would paste a half-finished dictation. Throwing
+    // hands the caller back to the raw transcript (see the reasoning fallback in
+    // audioManager.processTranscription), which is at least complete.
+    if (candidate?.finishReason === "MAX_TOKENS") {
+      logger.logReasoning("GEMINI_TRUNCATED", {
+        model,
+        responseLength: responseText.length,
+        maxOutputTokens: generationConfig.maxOutputTokens,
+        thinkingLevel: thinkingConfig?.thinkingLevel,
+        tokensUsed: response.usageMetadata?.totalTokenCount || 0,
+      });
+      throw new Error(
+        "Gemini reached token limit before finishing its response. Try a shorter input, a lower thinking level, or increase max tokens."
+      );
+    }
+
     if (!responseText) {
       logger.logReasoning("GEMINI_EMPTY_RESPONSE", {
         model,
         finishReason: candidate?.finishReason,
       });
-      if (candidate?.finishReason === "MAX_TOKENS") {
-        throw new Error(
-          "Gemini reached token limit before generating response. Try a shorter input or increase max tokens."
-        );
-      }
       throw new Error("Gemini returned empty response");
     }
 
     logger.logReasoning("GEMINI_RESPONSE", {
       model,
       responseLength: responseText.length,
+      finishReason: candidate?.finishReason,
       tokensUsed: response.usageMetadata?.totalTokenCount || 0,
       success: true,
     });

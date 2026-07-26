@@ -20,7 +20,7 @@ import { createEnterpriseChatModel } from "./ai/enterpriseChatModel";
 import { PROVIDER_REGISTRY, type ProviderContext } from "./ai/inferenceProviders";
 import { getConfiguredOpenAIBase } from "./ai/openaiBase";
 import { applyThinkingSuppression } from "./ai/thinkingSuppression";
-import { resolveGeminiThinkingConfig } from "./ai/geminiThinking";
+import { resolveGeminiThinkingConfig, resolveGeminiMaxOutputTokens } from "./ai/geminiThinking";
 import { detectEndpointDialect } from "./ai/thinkingSuppressionDialects";
 import { extractApiErrorMessage } from "./ai/apiErrorMessage";
 import { clearTinfoilClientCache } from "./ai/tinfoilClient";
@@ -681,6 +681,15 @@ class ReasoningService extends BaseReasoningService {
 
     const useTemperature = isLocalProvider || isLanChat || apiConfig.supportsTemperature;
 
+    // Gemini charges reasoning tokens against the output budget, so the agent
+    // stream needs the same headroom the REST path gets — without it a thinking
+    // level simply shortens the answer. @sync(gemini-thinking-config)
+    const answerTokens = config.maxTokens || 4096;
+    const maxOutputTokens =
+      provider === "gemini"
+        ? resolveGeminiMaxOutputTokens(answerTokens, geminiThinkingConfig)
+        : answerTokens;
+
     // cancelActiveStream() aborts this controller; streamText propagates it
     // into doStream, cancelling the enterprise IPC proxy's request in main.
     const abortController = new AbortController();
@@ -696,7 +705,7 @@ class ReasoningService extends BaseReasoningService {
       stopWhen: stepCountIs(tools ? ReasoningService.MAX_TOOL_STEPS : 1),
       abortSignal: abortController.signal,
       ...(useTemperature ? { temperature: config.temperature ?? 0.3 } : {}),
-      maxOutputTokens: config.maxTokens || 4096,
+      maxOutputTokens,
       ...(hasProviderOptions ? { providerOptions } : {}),
     });
 
