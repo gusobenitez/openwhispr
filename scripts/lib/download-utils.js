@@ -7,6 +7,9 @@ const REQUEST_TIMEOUT = 30000;
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000;
 const MAX_REDIRECTS = 5;
+// GitHub's per_page maximum, and enough pages to reach releases cut years back.
+const RELEASES_PER_PAGE = 100;
+const MAX_RELEASE_PAGES = 10;
 
 /**
  * Fetch JSON from a URL with proper error handling.
@@ -78,7 +81,7 @@ function fetchJson(url, redirectCount = 0) {
  * @param {string} repo - Repository in "owner/repo" format
  * @param {object} options - Options
  * @param {string} [options.tag] - Exact tag to fetch (works for any release age, no pagination)
- * @param {string} [options.tagPrefix] - Latest release whose tag starts with this prefix (searches the 50 most recent only)
+ * @param {string} [options.tagPrefix] - Latest release whose tag starts with this prefix (paginates through release history)
  * @param {boolean} [options.includePrerelease=false] - Include prereleases (tagPrefix only)
  * @returns {Promise<{tag: string, assets: Array<{name: string, url: string}>, url: string} | null>}
  */
@@ -98,19 +101,29 @@ async function fetchLatestRelease(repo, options = {}) {
       return formatRelease(release);
     }
 
-    const url = `https://api.github.com/repos/${repo}/releases?per_page=50`;
-    const releases = await fetchJson(url);
+    // Helper-binary releases (windows-key-listener-v*, etc.) are cut rarely and
+    // age off the first page as app releases accumulate, so walk pages until the
+    // prefix is found rather than giving up after one.
+    for (let page = 1; page <= MAX_RELEASE_PAGES; page++) {
+      const url = `https://api.github.com/repos/${repo}/releases?per_page=${RELEASES_PER_PAGE}&page=${page}`;
+      const releases = await fetchJson(url);
 
-    if (!Array.isArray(releases)) {
-      return null;
-    }
+      if (!Array.isArray(releases) || releases.length === 0) {
+        return null;
+      }
 
-    // Find the latest release matching the prefix
-    for (const release of releases) {
-      if (release.draft) continue;
-      if (!includePrerelease && release.prerelease) continue;
-      if (release.tag_name && release.tag_name.startsWith(tagPrefix)) {
-        return formatRelease(release);
+      // Find the latest release matching the prefix
+      for (const release of releases) {
+        if (release.draft) continue;
+        if (!includePrerelease && release.prerelease) continue;
+        if (release.tag_name && release.tag_name.startsWith(tagPrefix)) {
+          return formatRelease(release);
+        }
+      }
+
+      // A short page is the last page — no point asking for another.
+      if (releases.length < RELEASES_PER_PAGE) {
+        return null;
       }
     }
 
