@@ -356,8 +356,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getHyprlandConfigStatus: () => ipcRenderer.invoke("get-hyprland-config-status"),
   startWindowDrag: () => ipcRenderer.invoke("start-window-drag"),
   stopWindowDrag: () => ipcRenderer.invoke("stop-window-drag"),
-  setMainWindowInteractivity: (interactive) =>
-    ipcRenderer.invoke("set-main-window-interactivity", interactive),
+  setMainWindowHitRegions: (regions) =>
+    ipcRenderer.invoke("set-main-window-hit-regions", regions),
+  onMainWindowPointer: registerListener(
+    "main-window-pointer",
+    (callback) => (_event, state) => callback(state)
+  ),
   setNotificationInteractivity: (interactive) =>
     ipcRenderer.invoke("set-notification-interactivity", interactive),
   resizeMainWindow: (sizeKey) => ipcRenderer.invoke("resize-main-window", sizeKey),

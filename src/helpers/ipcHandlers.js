@@ -898,8 +898,8 @@ class IPCHandlers {
       return { success: true };
     });
 
-    ipcMain.handle("set-main-window-interactivity", (event, shouldCapture) => {
-      this.windowManager.setMainWindowInteractivity(Boolean(shouldCapture));
+    ipcMain.handle("set-main-window-hit-regions", (event, regions) => {
+      this.windowManager.setMainWindowHitRegions(regions);
       return { success: true };
     });
 

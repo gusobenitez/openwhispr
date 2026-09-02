@@ -202,6 +202,7 @@ const Toast: React.FC<
 
   return (
     <div
+      data-hit-region
       className={cn(
         "group toast-surface pointer-events-auto relative flex w-75",
         "rounded-[5px]",

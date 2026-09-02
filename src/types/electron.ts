@@ -1044,7 +1044,12 @@ declare global {
       getPlatform: () => string;
       startWindowDrag: () => Promise<void>;
       stopWindowDrag: () => Promise<void>;
-      setMainWindowInteractivity: (interactive: boolean) => Promise<void>;
+      setMainWindowHitRegions: (
+        regions: { x: number; y: number; width: number; height: number }[]
+      ) => Promise<void>;
+      onMainWindowPointer: (
+        callback: (state: { capturing: boolean; x: number; y: number }) => void
+      ) => () => void;
       setNotificationInteractivity: (interactive: boolean) => Promise<void>;
 
       // App management

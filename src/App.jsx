@@ -8,6 +8,7 @@ import { useHotkey } from "./hooks/useHotkey";
 import { formatHotkeyListLabel } from "./utils/hotkeys";
 import { useWindowDrag } from "./hooks/useWindowDrag";
 import { useAudioRecording } from "./hooks/useAudioRecording";
+import { usePanelHitRegions } from "./hooks/usePanelHitRegions";
 import { useSettingsStore } from "./stores/settingsStore";
 
 // Sound Wave Icon Component (for idle/hover states)
@@ -81,6 +82,7 @@ export default function App() {
   const [isHovered, setIsHovered] = useState(false);
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const commandMenuRef = useRef(null);
+  const panelRef = useRef(null);
   const buttonRef = useRef(null);
   const { toast, dismiss, toastCount } = useToast();
   const { t } = useTranslation();
@@ -95,14 +97,7 @@ export default function App() {
   const panelStartPosition = useSettingsStore((s) => s.panelStartPosition);
   const prevAutoHideRef = useRef(floatingIconAutoHide);
 
-  const setWindowInteractivity = React.useCallback((shouldCapture) => {
-    window.electronAPI?.setMainWindowInteractivity?.(shouldCapture);
-  }, []);
-
-  useEffect(() => {
-    setWindowInteractivity(false);
-    return () => setWindowInteractivity(false);
-  }, [setWindowInteractivity]);
+  usePanelHitRegions(panelRef, setIsHovered);
 
   useEffect(() => {
     const unsubscribeFallback = window.electronAPI?.onHotkeyFallbackUsed?.((data) => {
@@ -179,14 +174,6 @@ export default function App() {
   }, [toast, dismiss, t]);
 
   useEffect(() => {
-    if (isCommandMenuOpen || toastCount > 0) {
-      setWindowInteractivity(true);
-    } else if (!isHovered) {
-      setWindowInteractivity(false);
-    }
-  }, [isCommandMenuOpen, isHovered, toastCount, setWindowInteractivity]);
-
-  useEffect(() => {
     const resizeWindow = () => {
       if (isCommandMenuOpen && toastCount > 0) {
         window.electronAPI?.resizeMainWindow?.("EXPANDED");
@@ -203,8 +190,7 @@ export default function App() {
 
   const handleDictationToggle = React.useCallback(() => {
     setIsCommandMenuOpen(false);
-    setWindowInteractivity(false);
-  }, [setWindowInteractivity]);
+  }, []);
 
   const {
     isRecording,
@@ -357,28 +343,29 @@ export default function App() {
         }`}
       >
         <div
+          ref={panelRef}
+          data-hit-region
           className="relative flex items-center gap-2"
-          onMouseEnter={() => {
-            setIsHovered(true);
-            setWindowInteractivity(true);
-          }}
-          onMouseLeave={() => {
-            setIsHovered(false);
-            if (!isCommandMenuOpen) {
-              setWindowInteractivity(false);
-            }
-          }}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
         >
-          {(isRecording || isProcessing) && isHovered && (
+          {(isRecording || isProcessing) && (
             <button
               aria-label={
                 isRecording ? t("app.buttons.cancelRecording") : t("app.buttons.cancelProcessing")
               }
+              tabIndex={isHovered ? 0 : -1}
+              aria-hidden={!isHovered}
               onClick={(e) => {
                 e.stopPropagation();
                 isRecording ? cancelRecording() : cancelProcessing();
               }}
-              className="group/cancel w-5 h-5 rounded-full bg-surface-2/90 hover:bg-destructive border border-border hover:border-destructive/70 flex items-center justify-center transition-colors duration-150 shadow-sm backdrop-blur-sm"
+              // Kept mounted (just invisible) so its slot is already part of the
+              // window's hit region before the pointer travels here — mounting it
+              // on hover raced the region update and made it hard to click.
+              className={`group/cancel w-5 h-5 rounded-full bg-surface-2/90 hover:bg-destructive border border-border hover:border-destructive/70 flex items-center justify-center transition-all duration-150 shadow-sm backdrop-blur-sm ${
+                isHovered ? "opacity-100" : "opacity-0 pointer-events-none"
+              }`}
             >
               <X
                 size={10}
@@ -431,7 +418,6 @@ export default function App() {
               onContextMenu={(e) => {
                 e.preventDefault();
                 if (!hasDragged) {
-                  setWindowInteractivity(true);
                   setIsCommandMenuOpen((prev) => !prev);
                 }
               }}
@@ -490,15 +476,8 @@ export default function App() {
           {isCommandMenuOpen && (
             <div
               ref={commandMenuRef}
+              data-hit-region="window"
               className="absolute bottom-full right-0 mb-3 w-48 rounded-lg border border-border bg-popover text-popover-foreground shadow-lg backdrop-blur-sm"
-              onMouseEnter={() => {
-                setWindowInteractivity(true);
-              }}
-              onMouseLeave={() => {
-                if (!isHovered) {
-                  setWindowInteractivity(false);
-                }
-              }}
             >
               <button
                 className="w-full px-3 py-2 text-left text-sm font-medium hover:bg-muted focus:bg-muted focus:outline-none"
@@ -515,7 +494,6 @@ export default function App() {
                 className="w-full px-3 py-2 text-left text-sm hover:bg-muted focus:bg-muted focus:outline-none"
                 onClick={() => {
                   setIsCommandMenuOpen(false);
-                  setWindowInteractivity(false);
                   handleClose();
                 }}
               >

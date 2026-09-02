@@ -8,6 +8,7 @@ const DevServerManager = require("./devServerManager");
 const dockManager = require("./dockManager");
 const { i18nMain } = require("./i18nMain");
 const { DEV_SERVER_PORT } = DevServerManager;
+const { normalizeHitRegions, resolveCapture } = require("./panelHitRegion");
 const {
   MAIN_WINDOW_CONFIG,
   CONTROL_PANEL_CONFIG,
@@ -39,6 +40,9 @@ class WindowManager {
     this.hotkeyManager = new HotkeyManager();
     this.dragManager = new DragManager();
     this.isQuitting = false;
+    this._mainWindowHitRegions = [];
+    this._mainWindowCapturing = null;
+    this._hitRegionPollInterval = null;
     this.loadErrorShown = false;
     this.macCompoundPushState = null;
     this.winPushState = null;
@@ -70,7 +74,10 @@ class WindowManager {
       ...position,
     });
 
-    this.setMainWindowInteractivity(false);
+    // Start fully click-through; the renderer publishes what it paints and
+    // setMainWindowHitRegions() takes over from there.
+    this.mainWindow.setIgnoreMouseEvents(true, { forward: true });
+    this._mainWindowCapturing = false;
     this.registerMainWindowEvents();
 
     // Register load event handlers BEFORE loading to catch all events
@@ -108,23 +115,77 @@ class WindowManager {
     MenuManager.setupMainMenu(() => this.openSettings());
   }
 
-  setMainWindowInteractivity(shouldCapture) {
+  /**
+   * The renderer reports the rectangles the dictation panel currently paints,
+   * in CSS px relative to the window's top-left corner. Everything else in this
+   * transparent window has to stay click-through. See panelHitRegion.js for why
+   * the cursor test lives here rather than in renderer mouse handlers.
+   */
+  setMainWindowHitRegions(regions) {
+    this._mainWindowHitRegions = normalizeHitRegions(regions);
+    this._syncMainWindowMouseCapture();
+    this._updateHitRegionPolling();
+  }
+
+  _syncMainWindowMouseCapture() {
     if (!this.mainWindow || this.mainWindow.isDestroyed()) {
       return;
     }
 
-    if (process.platform === "win32") {
-      // Windows click-through forwarding is unreliable for this floating panel.
-      // Keep the panel interactive so the mic button and cancel button are always clickable.
+    const { capturing, x, y } = resolveCapture({
+      cursor: screen.getCursorScreenPoint(),
+      windowBounds: this.mainWindow.getBounds(),
+      regions: this._mainWindowHitRegions,
+      isDragging: this.dragManager.isDragging,
+    });
+
+    if (capturing === this._mainWindowCapturing) {
+      return;
+    }
+    this._mainWindowCapturing = capturing;
+
+    if (capturing) {
       this.mainWindow.setIgnoreMouseEvents(false);
+    } else {
+      // forward keeps Chromium's hover state alive on macOS/Windows; Linux
+      // ignores it, which is fine because capture is decided here, not by
+      // renderer mouseenter.
+      this.mainWindow.setIgnoreMouseEvents(true, { forward: true });
+    }
+
+    // Chromium only re-evaluates :hover on the next mouse movement, so a cursor
+    // that lands on the panel and stops would never produce a mouseenter. Hand
+    // the renderer the crossing itself.
+    if (!this.mainWindow.webContents.isDestroyed()) {
+      this.mainWindow.webContents.send("main-window-pointer", { capturing, x, y });
+    }
+  }
+
+  _updateHitRegionPolling() {
+    const shouldPoll = Boolean(
+      this.mainWindow &&
+      !this.mainWindow.isDestroyed() &&
+      this.mainWindow.isVisible() &&
+      this._mainWindowHitRegions.length > 0
+    );
+
+    if (shouldPoll === Boolean(this._hitRegionPollInterval)) {
       return;
     }
 
-    if (shouldCapture) {
-      this.mainWindow.setIgnoreMouseEvents(false);
+    if (shouldPoll) {
+      // Same 16ms cadence DragManager uses; a slower poll would let a quick
+      // move-and-click land before the window becomes clickable.
+      this._hitRegionPollInterval = setInterval(() => this._syncMainWindowMouseCapture(), 16);
     } else {
-      this.mainWindow.setIgnoreMouseEvents(true, { forward: true });
+      clearInterval(this._hitRegionPollInterval);
+      this._hitRegionPollInterval = null;
     }
+  }
+
+  _stopHitRegionPolling() {
+    clearInterval(this._hitRegionPollInterval);
+    this._hitRegionPollInterval = null;
   }
 
   setNotificationInteractivity(interactive) {
@@ -1151,6 +1212,11 @@ class WindowManager {
 
     this.mainWindow.on("show", () => {
       this.enforceMainWindowOnTop();
+      this._updateHitRegionPolling();
+    });
+
+    this.mainWindow.on("hide", () => {
+      this._stopHitRegionPolling();
     });
 
     this.mainWindow.on("focus", () => {
@@ -1159,6 +1225,9 @@ class WindowManager {
 
     this.mainWindow.on("closed", () => {
       this.dragManager.cleanup();
+      this._stopHitRegionPolling();
+      this._mainWindowHitRegions = [];
+      this._mainWindowCapturing = null;
       this.mainWindow = null;
     });
   }
